@@ -3,6 +3,9 @@ from flask_cors import CORS
 from application_services.art_catalog_resource import ArtCatalogResource
 import json
 import logging
+from middleware.Notification.notification import SnsWrapper
+import boto3
+import os
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
@@ -72,6 +75,18 @@ def delete_catalog_item(item_id):
             status=500,
             content_type="application/json",
         )
+    return rsp
+
+@application.after_request
+def after_decorator(rsp):
+    print('... In after decorator ...')
+    if request.method == "POST":
+        sns_wrapper = SnsWrapper(boto3.client('sns'))
+        # print(sns_wrapper.list_topics())
+
+        # create notification object
+        topic = os.environ.get("SNSARN", None)
+        sns_wrapper.publish_message(topic, request.json)
     return rsp
 
 
