@@ -40,11 +40,14 @@ class SnsWrapper:
                            must be either `str` or `bytes`.
         :return: The ID of the message.
         """
-        
-        rsp = self.sns_resource.publish(TargetArn=topic, 
-                                        Message=json.dumps({'default':json.dumps(message)}), 
-                                        MessageStructure='json')
-        print(
-            "Published message with attributes %s to topic %s.", message,
-            topic)
+        try: 
+            rsp = self.sns_resource.publish(TargetArn=topic, 
+                                            Message=json.dumps({'default':json.dumps(message)}), 
+                                            MessageStructure='json')
+            print(
+                "Published message with attributes %s to topic %s.", message,
+                topic)
+        except:
+            print('Could not publish message')
+            return
         
