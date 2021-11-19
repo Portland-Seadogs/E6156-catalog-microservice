@@ -1,6 +1,10 @@
 from flask import Flask, Response, request
 from flask_cors import CORS
-from application_services.art_catalog_resource import ArtCatalogResource, ArtCatalogResourceInvalidFieldException, ArtCatalogResourceInvalidDataTypeException
+from application_services.art_catalog_resource import (
+    ArtCatalogResource,
+    ArtCatalogResourceInvalidFieldException,
+    ArtCatalogResourceInvalidDataTypeException,
+)
 import json
 import logging
 from http import HTTPStatus
@@ -23,7 +27,9 @@ def health_check():
 @app.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
     res = ArtCatalogResource.retrieve_all_records()
-    return Response(json.dumps(res), status=HTTPStatus.OK, content_type="application/json")
+    return Response(
+        json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
+    )
 
 
 @app.route("/api/catalog/<int:item_id>", methods=["GET"])
@@ -34,10 +40,12 @@ def get_catalog_item(item_id):
         return Response(
             json.dumps({"item_id": item_id}),
             status=HTTPStatus.NOT_FOUND,
-            content_type="application/json"
+            content_type="application/json",
         )
     else:
-        return Response(json.dumps(res), status=HTTPStatus.OK, content_type="application/json")
+        return Response(
+            json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
+        )
 
 
 @app.route("/api/catalog", methods=["POST"])
@@ -86,10 +94,10 @@ def delete_catalog_item(item_id):
 
     if res == 1:
         json_s = json.dumps({"item_id": item_id, "status": "deleted"})
-        status_code = HTTPStatus.OK,
+        status_code = (HTTPStatus.OK,)
     elif res == 0:
         json_s = json.dumps({"item_id": item_id})
-        status_code = HTTPStatus.NOT_FOUND,
+        status_code = (HTTPStatus.NOT_FOUND,)
     else:
         json_s = json.dumps({"item_id": item_id, "status": "error"})
         status_code = HTTPStatus.INTERNAL_SERVER_ERROR
