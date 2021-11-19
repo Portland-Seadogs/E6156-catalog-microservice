@@ -10,6 +10,13 @@ logger.setLevel(logging.INFO)
 
 
 class RDBServiceException(Exception):
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class InvalidDbRequest(Exception):
+
     def __init__(self, msg):
         self.msg = msg
 
@@ -187,7 +194,7 @@ def _execute_db_commit_query(sql, args):
         conn.commit()
         return res
     except Exception as e:
-        raise RDBServiceException(e)
+        raise RDBServiceException(str(e))
     finally:
         conn.close()
 

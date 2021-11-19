@@ -3,9 +3,9 @@ from flask_cors import CORS
 from application_services.art_catalog_resource import ArtCatalogResource
 import json
 import logging
-from middleware.Notification.notification import SnsWrapper
-import boto3
-import os
+from http import HTTPStatus
+
+from database_services.rdb_service import RDBServiceException
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
@@ -22,41 +22,56 @@ def health_check():
 @app.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
     res = ArtCatalogResource.retrieve_all_records()
-    rsp = Response(json.dumps(res), status=200, content_type="application/json")
-    return rsp
+    return Response(json.dumps(res), status=HTTPStatus.OK, content_type="application/json")
 
 
 @app.route("/api/catalog/<int:item_id>", methods=["GET"])
 def get_catalog_item(item_id):
     res = ArtCatalogResource.retrieve_single_record(item_id)
-    rsp = Response(json.dumps(res), status=200, content_type="application/json")
-    return rsp
+
+    if not res:  # couldn't find anything with that ID
+        return Response(
+            json.dumps({"item_id": item_id}),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json"
+        )
+    else:
+        return Response(json.dumps(res), status=HTTPStatus.OK, content_type="application/json")
 
 
 @app.route("/api/catalog", methods=["POST"])
 def add_new_catalog_item():
-    res = ArtCatalogResource.add_new_product(request.get_json())
-    rsp = Response(json.dumps(res), status=201, content_type="application/json")
-    return rsp
+    json_s = None
+    status_code = HTTPStatus.INTERNAL_SERVER_ERROR
+
+    try:
+        res = ArtCatalogResource.add_new_product(request.get_json())
+        json_s = json.dumps(res)
+        status_code = HTTPStatus.CREATED
+    except RDBServiceException as e:
+        if "unknown column" in e.msg.lower():
+            json_s = json.dumps({"status": "unknown field in request"})
+            status_code = HTTPStatus.BAD_REQUEST
+
+    return Response(json_s, status_code, content_type="application/json")
 
 
-@app.route("/api/catalog/<int:item_id>", methods=["PUT"])
+@app.route("/api/catalog/<int:item_id>", methods=["PUT", "POST"])
 def update_catalog_item(item_id):
     fields_to_update = request.get_json()
-    res = ArtCatalogResource.update_item_by_id(item_id, fields_to_update)
+    json_s = json.dumps({"item_id": item_id, "status": "error"})
+    status_code = HTTPStatus.INTERNAL_SERVER_ERROR
 
-    if res == 1:
-        fields_to_update.update({"item_id": item_id, "status": "updated"})
-        rsp = Response(
-            json.dumps(fields_to_update), status=200, content_type="application/json"
-        )
-    else:
-        rsp = Response(
-            json.dumps({"item_id": item_id, "status": "error"}),
-            status=500,
-            content_type="application/json",
-        )
-    return rsp
+    try:
+        res = ArtCatalogResource.update_item_by_id(item_id, fields_to_update)
+        json_s = json.dumps(fields_to_update.update({"item_id": item_id, "status": "updated"}))
+        status_code = HTTPStatus.OK
+    except RDBServiceException as e:
+        if "unknown column" in e.msg.lower():
+            json_s = json.dumps({"item_id": item_id, "status": "unknown field in request"})
+            status_code = HTTPStatus.BAD_REQUEST
+
+    return Response(json_s, status=status_code, content_type="application/json")
 
 
 @app.route("/api/catalog/<int:item_id>", methods=["DELETE"])
@@ -64,30 +79,16 @@ def delete_catalog_item(item_id):
     res = ArtCatalogResource.delete_item_by_id(item_id)
 
     if res == 1:
-        rsp = Response(
-            json.dumps({"item_id": item_id, "status": "deleted"}),
-            status=200,
-            content_type="application/json",
-        )
+        json_s = json.dumps({"item_id": item_id, "status": "deleted"})
+        status_code = HTTPStatus.OK,
+    elif res == 0:
+        json_s = json.dumps({"item_id": item_id})
+        status_code = HTTPStatus.NOT_FOUND,
     else:
-        rsp = Response(
-            json.dumps({"item_id": item_id, "status": "error"}),
-            status=500,
-            content_type="application/json",
-        )
-    return rsp
+        json_s = json.dumps({"item_id": item_id, "status": "error"})
+        status_code = HTTPStatus.INTERNAL_SERVER_ERROR
 
-@application.after_request
-def after_decorator(rsp):
-    print('... In after decorator ...')
-    if request.method == "POST":
-        sns_wrapper = SnsWrapper(boto3.client('sns'))
-        # print(sns_wrapper.list_topics())
-
-        # create notification object
-        topic = os.environ.get("SNSARN", None)
-        sns_wrapper.publish_message(topic, request.json)
-    return rsp
+    return Response(json_s, status=status_code, content_type="application/json")
 
 
 if __name__ == "__main__":
