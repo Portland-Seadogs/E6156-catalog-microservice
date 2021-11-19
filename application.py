@@ -1,17 +1,18 @@
 from flask import Flask, Response, request
 from flask_cors import CORS
-from application_services.art_catalog_resource import ArtCatalogResource
+from application_services.art_catalog_resource import ArtCatalogResource, ArtCatalogResourceInvalidFieldException, ArtCatalogResourceInvalidDataTypeException
 import json
 import logging
 from http import HTTPStatus
-
-from database_services.rdb_service import RDBServiceException
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
 
 application = app = Flask(__name__)
 CORS(app)
+
+UNKNOWN_FIELD_MSG = "unknown field in request"
+INVALID_DATA_MSG = "invalid data type provided"
 
 
 @app.route("/")
@@ -46,12 +47,14 @@ def add_new_catalog_item():
 
     try:
         res = ArtCatalogResource.add_new_product(request.get_json())
-        json_s = json.dumps(res)
+        json_s = json.dumps({"item_id": res}) if res != 0 else ""
         status_code = HTTPStatus.CREATED
-    except RDBServiceException as e:
-        if "unknown column" in e.msg.lower():
-            json_s = json.dumps({"status": "unknown field in request"})
-            status_code = HTTPStatus.BAD_REQUEST
+    except ArtCatalogResourceInvalidFieldException:
+        json_s = json.dumps({"status": UNKNOWN_FIELD_MSG})
+        status_code = HTTPStatus.BAD_REQUEST
+    except ArtCatalogResourceInvalidDataTypeException:
+        json_s = json.dumps({"status": INVALID_DATA_MSG})
+        status_code = HTTPStatus.BAD_REQUEST
 
     return Response(json_s, status_code, content_type="application/json")
 
@@ -64,12 +67,15 @@ def update_catalog_item(item_id):
 
     try:
         res = ArtCatalogResource.update_item_by_id(item_id, fields_to_update)
-        json_s = json.dumps(fields_to_update.update({"item_id": item_id, "status": "updated"}))
+        fields_to_update.update({"item_id": item_id, "status": "updated"})
+        json_s = json.dumps(fields_to_update)
         status_code = HTTPStatus.OK
-    except RDBServiceException as e:
-        if "unknown column" in e.msg.lower():
-            json_s = json.dumps({"item_id": item_id, "status": "unknown field in request"})
-            status_code = HTTPStatus.BAD_REQUEST
+    except ArtCatalogResourceInvalidFieldException:
+        json_s = json.dumps({"item_id": item_id, "status": UNKNOWN_FIELD_MSG})
+        status_code = HTTPStatus.BAD_REQUEST
+    except ArtCatalogResourceInvalidDataTypeException:
+        json_s = json.dumps({"item_id": item_id, "status": INVALID_DATA_MSG})
+        status_code = HTTPStatus.BAD_REQUEST
 
     return Response(json_s, status=status_code, content_type="application/json")
 
