@@ -17,14 +17,14 @@ class ArtCatalogResource(BaseApplicationResource):
     table_name = "products"
 
     expected_types = {
-        'artist': [str],
-        'title': [str],
-        'description': [str],
-        'width': [float, int],
-        'height': [float, int],
-        'price': [float, int],
-        'img_url': [str],
-        'comments': [str],
+        "artist": [str],
+        "title": [str],
+        "description": [str],
+        "width": [float, int],
+        "height": [float, int],
+        "price": [float, int],
+        "img_url": [str],
+        "comments": [str],
     }
 
     def __init__(self):
@@ -70,7 +70,10 @@ class ArtCatalogResource(BaseApplicationResource):
         # in application layer are made
         if any(not cls._field_exists(field) for field in field_information.keys()):
             raise ArtCatalogResourceInvalidFieldException()
-        if any(not cls._valid_d_type(field, value) for field, value in field_information.items()):
+        if any(
+            not cls._valid_d_type(field, value)
+            for field, value in field_information.items()
+        ):
             raise ArtCatalogResourceInvalidDataTypeException()
         return True
 

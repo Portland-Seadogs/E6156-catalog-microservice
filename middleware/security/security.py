@@ -21,26 +21,32 @@ class Security:
         if incoming_request.endpoint in LOGIN_NOT_REQUIRED_PATHS:
             return None
 
-        if 'Authorization' not in incoming_request.headers:
-            return {'message': 'Request denied access',
-                    'reason': 'Authorization header missing. Please provide an '
-                    'OAuth2 Token with your request'}, 400
+        if "Authorization" not in incoming_request.headers:
+            return {
+                "message": "Request denied access",
+                "reason": "Authorization header missing. Please provide an "
+                "OAuth2 Token with your request",
+            }, 400
 
-        auth_header = incoming_request.headers.get('Authorization')
-        if 'Bearer ' not in auth_header:
-            return {'message': 'Request denied access',
-                    'reason': "Malformed authorization header provided. Please make sure to "
-                    "specify the header prefix correctly as 'Bearer ' and try again."}, 400
+        auth_header = incoming_request.headers.get("Authorization")
+        if "Bearer " not in auth_header:
+            return {
+                "message": "Request denied access",
+                "reason": "Malformed authorization header provided. Please make sure to "
+                "specify the header prefix correctly as 'Bearer ' and try again.",
+            }, 400
 
         # validate the token with Google
         access_token = auth_header.split("Bearer ")[1]
         is_valid, validation = cls.is_valid_token(access_token)
         if not is_valid:
-            return {'message': 'Request denied access',
-                    'reason': f'Google rejected oauth2 token: {validation["error_description"]}'}, 401
+            return {
+                "message": "Request denied access",
+                "reason": f'Google rejected oauth2 token: {validation["error_description"]}',
+            }, 401
 
         g.access_token = access_token
-        g.google_user_id = validation['user_id']
+        g.google_user_id = validation["user_id"]
         return None
 
     @classmethod
@@ -53,6 +59,6 @@ class Security:
         """
         google_auth = GoogleAuth()
         validation = google_auth.validate_token(token)
-        if 'error' in validation.keys():
+        if "error" in validation.keys():
             return False, validation
         return True, validation

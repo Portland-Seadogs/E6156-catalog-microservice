@@ -39,7 +39,7 @@ def verify_oauth_token():
 @application.after_request
 def after_decorator(rsp):
     if request.method == "POST":
-        sns_wrapper = SnsWrapper(boto3.client('sns'))
+        sns_wrapper = SnsWrapper(boto3.client("sns"))
 
         # create notification object
         topic = os.environ.get("SNSARN", None)
@@ -134,4 +134,4 @@ def delete_catalog_item(item_id):
 
 
 if __name__ == "__main__":
-    application.run(host="0.0.0.0", port=5000)
+    application.run(host="0.0.0.0", port=7777)
