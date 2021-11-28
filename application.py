@@ -55,15 +55,22 @@ def health_check():
 @application.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
     res = ArtCatalogResource.retrieve_all_records()
-    result = {}
     if res:
-        result["catalog_items"] = res
-        result["links"] = [
-            {"rel": "catalog_item", "href": f'/api/catalog/{item["item_id"]}'}
+        [
+            item.update(
+                {
+                    "links": [
+                        {
+                            "rel": "catalog_item",
+                            "href": f'/api/catalog/{item["item_id"]}',
+                        }
+                    ]
+                }
+            )
             for item in res
         ]
     return Response(
-        json.dumps(result), status=HTTPStatus.OK, content_type="application/json"
+        json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
     )
 
 
