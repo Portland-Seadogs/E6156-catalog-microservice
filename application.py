@@ -8,23 +8,51 @@ from application_services.art_catalog_resource import (
 import json
 import logging
 from http import HTTPStatus
+from middleware.security.security import Security
+from middleware.Notification.notification import SnsWrapper
+import boto3
+import os
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
 
-application = app = Flask(__name__)
-CORS(app)
+application = Flask(__name__)
+CORS(application)
 
 UNKNOWN_FIELD_MSG = "unknown field in request"
 INVALID_DATA_MSG = "invalid data type provided"
 
 
-@app.route("/")
+@application.before_request
+def verify_oauth_token():
+    """
+    Method to run before all requests; determines if a user has a valid
+    Google OAuth2 token and uses the token to discover who the user making the request is.
+    The google user and auth token loaded into special flask object called 'g'.
+    While g is not appropriate for storing data across requests, it provides a global namespace
+    for holding any data you want during a single request.
+    """
+    return Security.verify_token(request)
+
+
+@application.after_request
+def after_decorator(rsp):
+    if request.method == "POST":
+        sns_wrapper = SnsWrapper(boto3.client('sns'))
+
+        # create notification object
+        topic = os.environ.get("SNSARN", None)
+        sns_wrapper.publish_message(topic, request.json)
+    return rsp
+
+
+@application.route("/")
 def health_check():
     return "<u>Hello World</u>"
 
 
-@app.route("/api/catalog", methods=["GET"])
+@application.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
     res = ArtCatalogResource.retrieve_all_records()
     return Response(
@@ -32,7 +60,7 @@ def get_full_catalog():
     )
 
 
-@app.route("/api/catalog/<int:item_id>", methods=["GET"])
+@application.route("/api/catalog/<int:item_id>", methods=["GET"])
 def get_catalog_item(item_id):
     res = ArtCatalogResource.retrieve_single_record(item_id)
 
@@ -48,7 +76,7 @@ def get_catalog_item(item_id):
         )
 
 
-@app.route("/api/catalog", methods=["POST"])
+@application.route("/api/catalog", methods=["POST"])
 def add_new_catalog_item():
     json_s = None
     status_code = HTTPStatus.INTERNAL_SERVER_ERROR
@@ -67,7 +95,7 @@ def add_new_catalog_item():
     return Response(json_s, status_code, content_type="application/json")
 
 
-@app.route("/api/catalog/<int:item_id>", methods=["PUT", "POST"])
+@application.route("/api/catalog/<int:item_id>", methods=["PUT", "POST"])
 def update_catalog_item(item_id):
     fields_to_update = request.get_json()
     json_s = json.dumps({"item_id": item_id, "status": "error"})
@@ -88,7 +116,7 @@ def update_catalog_item(item_id):
     return Response(json_s, status=status_code, content_type="application/json")
 
 
-@app.route("/api/catalog/<int:item_id>", methods=["DELETE"])
+@application.route("/api/catalog/<int:item_id>", methods=["DELETE"])
 def delete_catalog_item(item_id):
     res = ArtCatalogResource.delete_item_by_id(item_id)
 
