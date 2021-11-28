@@ -53,6 +53,8 @@ class ArtCatalogResource(BaseApplicationResource):
 
     @classmethod
     def update_item_by_id(cls, item_id, updated_information):
+        if not updated_information:
+            return 1
         if cls.is_valid_input(updated_information):
             return d_service.update_record(
                 cls.db_schema, cls.table_name, "item_id", item_id, **updated_information

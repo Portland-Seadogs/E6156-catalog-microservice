@@ -55,8 +55,15 @@ def health_check():
 @application.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
     res = ArtCatalogResource.retrieve_all_records()
+    result = {}
+    if res:
+        result["catalog_items"] = res
+        result["links"] = [
+            {"rel": "catalog_item", "href": f'/api/catalog/{item["item_id"]}'}
+            for item in res
+        ]
     return Response(
-        json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
+        json.dumps(result), status=HTTPStatus.OK, content_type="application/json"
     )
 
 
@@ -71,8 +78,13 @@ def get_catalog_item(item_id):
             content_type="application/json",
         )
     else:
+        result = (
+            {"item": res, "links": [{"rel": "self", "href": f"/api/catalog/{item_id}"}]}
+            if res
+            else None
+        )
         return Response(
-            json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
+            json.dumps(result), status=HTTPStatus.OK, content_type="application/json"
         )
 
 
@@ -97,13 +109,19 @@ def add_new_catalog_item():
 
 @application.route("/api/catalog/<int:item_id>", methods=["PUT", "POST"])
 def update_catalog_item(item_id):
-    fields_to_update = request.get_json()
+    fields_to_update = request.get_json() if request.get_json() else {}
     json_s = json.dumps({"item_id": item_id, "status": "error"})
     status_code = HTTPStatus.INTERNAL_SERVER_ERROR
 
     try:
         res = ArtCatalogResource.update_item_by_id(item_id, fields_to_update)
-        fields_to_update.update({"item_id": item_id, "status": "updated"})
+        fields_to_update.update(
+            {
+                "item_id": item_id,
+                "status": "updated",
+                "links": [{"rel": "self", "href": f"/api/catalog/{item_id}"}],
+            }
+        )
         json_s = json.dumps(fields_to_update)
         status_code = HTTPStatus.OK
     except ArtCatalogResourceInvalidFieldException:
