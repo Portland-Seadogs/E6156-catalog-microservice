@@ -33,7 +33,10 @@ def verify_oauth_token():
     While g is not appropriate for storing data across requests, it provides a global namespace
     for holding any data you want during a single request.
     """
-    return Security.verify_token(request)
+    if request.method != 'OPTIONS':
+        return Security.verify_token(request)
+    else:
+        return None
 
 
 @application.after_request
@@ -54,6 +57,7 @@ def health_check():
 
 @application.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
+    print('here')
     res = ArtCatalogResource.retrieve_all_records()
     if res:
         [
@@ -68,7 +72,7 @@ def get_full_catalog():
                 }
             )
             for item in res
-        ]
+        ]    
     return Response(
         json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
     )
