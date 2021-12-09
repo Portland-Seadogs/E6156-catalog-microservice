@@ -8,6 +8,7 @@ from application_services.art_catalog_resource import (
 import json
 import logging
 from http import HTTPStatus
+from middleware import context
 from middleware.security.security import Security
 from middleware.Notification.notification import SnsWrapper
 import boto3
@@ -33,7 +34,7 @@ def verify_oauth_token():
     While g is not appropriate for storing data across requests, it provides a global namespace
     for holding any data you want during a single request.
     """
-    if request.method != 'OPTIONS':
+    if request.method != "OPTIONS":
         return Security.verify_token(request)
     else:
         return None
@@ -41,8 +42,15 @@ def verify_oauth_token():
 
 @application.after_request
 def after_decorator(rsp):
-    if request.method == "POST":
-        sns_wrapper = SnsWrapper(boto3.client("sns"))
+    if request.method == "POST" and request.endpoint == "add_new_catalog_item":
+        aws_creds = context.get_aws_credentials()
+        client = boto3.client(
+            "sns",
+            region_name="us-east-2",
+            aws_access_key_id=aws_creds["aws_access_key"],
+            aws_secret_access_key=aws_creds["aws_secret_key"],
+        )
+        sns_wrapper = SnsWrapper(client)
 
         # create notification object
         topic = os.environ.get("SNSARN", None)
@@ -57,7 +65,7 @@ def health_check():
 
 @application.route("/api/catalog", methods=["GET"])
 def get_full_catalog():
-    print('here')
+    print("here")
     res = ArtCatalogResource.retrieve_all_records()
     if res:
         [
@@ -72,7 +80,7 @@ def get_full_catalog():
                 }
             )
             for item in res
-        ]    
+        ]
     return Response(
         json.dumps(res), status=HTTPStatus.OK, content_type="application/json"
     )
@@ -151,10 +159,10 @@ def delete_catalog_item(item_id):
 
     if res == 1:
         json_s = json.dumps({"item_id": item_id, "status": "deleted"})
-        status_code = (HTTPStatus.OK,)
+        status_code = HTTPStatus.OK
     elif res == 0:
         json_s = json.dumps({"item_id": item_id})
-        status_code = (HTTPStatus.NOT_FOUND,)
+        status_code = HTTPStatus.NOT_FOUND
     else:
         json_s = json.dumps({"item_id": item_id, "status": "error"})
         status_code = HTTPStatus.INTERNAL_SERVER_ERROR

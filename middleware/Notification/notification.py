@@ -48,6 +48,6 @@ class SnsWrapper:
                 MessageStructure="json",
             )
             print("Published message with attributes %s to topic %s.", message, topic)
-        except:
-            print("Could not publish message")
+        except Exception as e:
+            print(f"Could not publish message: {e}")
             return
